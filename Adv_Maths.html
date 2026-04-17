@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P6 數學推理無限挑戰 (終極版)</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", Arial, sans-serif; background-color: #f0f8ff; color: #333; line-height: 1.6; padding: 20px; }
+        
+        /* 加入 position: relative 以便定位右上角按鈕 */
+        .container { position: relative; max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 10px; margin-top: 10px; }
+        .subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; font-size: 0.9em; }
+        
+        /* 右上角按鈕樣式 */
+        .top-refresh-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #f39c12; /* 橘色比較顯眼 */
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .top-refresh-btn:hover { background-color: #e67e22; transform: translateY(-2px); }
+
+        .score-board { display: none; background-color: #ffeaa7; padding: 15px; border-radius: 8px; text-align: center; font-size: 1.4em; font-weight: bold; margin-bottom: 25px; border: 2px solid #fdcb6e; color: #d35400; }
+        
+        .question-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: #fafafa; transition: transform 0.2s; }
+        .question-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+        
+        .question-title { font-weight: bold; font-size: 1.1em; margin-bottom: 10px; color: #2980b9; }
+        
+        .math-expr { font-family: "Courier New", Courier, monospace; background: #fff; padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd; display: inline-block; margin: 5px 0; font-weight: bold; font-size: 1.25em; color: #d35400; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+        
+        .input-group { margin-top: 15px; display: flex; align-items: center; gap: 10px; }
+        input[type="text"] { padding: 10px; border: 2px solid #ccc; border-radius: 6px; width: 180px; font-size: 1.1em; outline: none; transition: all 0.3s; }
+        input[type="text"]:focus { border-color: #3498db; }
+        
+        /* 答對與答錯樣式 */
+        .correct-input { background-color: #d4edda !important; border-color: #28a745 !important; color: #155724; font-weight: bold; }
+        .incorrect-input { background-color: #ffcccc !important; border-color: #dc3545 !important; color: #721c24; }
+        
+        .solution { display: none; margin-top: 15px; background-color: #e8f5e9; padding: 15px; border-radius: 6px; border-left: 5px solid #2ecc71; font-size: 0.95em; }
+        .solution strong { color: #27ae60; }
+        
+        .btn-submit { display: block; width: 100%; padding: 18px; background-color: #3498db; color: white; border: none; border-radius: 8px; font-size: 1.3em; cursor: pointer; margin-top: 30px; font-weight: bold; transition: background 0.3s; }
+        .btn-submit:hover { background-color: #2980b9; }
+        .btn-refresh-bottom { background-color: #95a5a6; margin-top: 15px; font-size: 1em; padding: 12px; }
+        .btn-refresh-bottom:hover { background-color: #7f8c8d; }
+
+        /* 手機版調整 */
+        @media (max-width: 600px) {
+            .top-refresh-btn { position: relative; top: 0; right: 0; margin: 10px auto; display: inline-block; width: auto; }
+            h1 { margin-top: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="top-refresh-btn" onclick="initQuiz()">🔄 換一批題目</button>
+
+    <h1>🧩 P6 數學推理無限挑戰</h1>
+    <div class="subtitle">題目數值每次隨機產生，挑戰你的邏輯！</div>
+    
+    <div id="scoreBoard" class="score-board"></div>
+
+    <form id="quizForm" onsubmit="return checkAnswers(event)">
+        <div id="questions-container">
+            </div>
+
+        <button class="btn-submit" type="submit">提交答案並批改</button>
+        <button class="btn-submit btn-refresh-bottom" type="button" onclick="initQuiz()">🔄 再做一次 (換一批題目)</button>
+    </form>
+</div>
+
+<script>
+    function randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    const generators = [
+        {
+            title: "除法極值",
+            generate: () => {
+                const divisor = randomInt(6, 15);
+                const quotient = randomInt(11, 25);
+                const maxRemainder = divisor - 1;
+                const answer = quotient * divisor + maxRemainder;
+                return {
+                    question: `在算式 <span class="math-expr">🔲 ÷ ${divisor} = ${quotient} ... (餘數)</span> 中。請問被除數 🔲 <strong>最大</strong>可能是多少？`,
+                    answer: answer.toString(),
+                    explanation: `餘數必須小於除數 ${divisor}，所以餘數最大是 ${maxRemainder}。<br>被除數 = 商 × 除數 + 餘數 = ${quotient} × ${divisor} + ${maxRemainder} = ${answer}。`
+                };
+            }
+        },
+        {
+            title: "蟲食算逆推",
+            generate: () => {
+                const digit = randomInt(1, 9);
+                const m = randomInt(3, 9);
+                const ans = (10 + digit) * m;
+                return {
+                    question: `已知 <span class="math-expr">1🔲 x ${m} = ${ans}</span>。請問 🔲 代表的數字是多少？`,
+                    answer: digit.toString(),
+                    explanation: `利用除法逆推：${ans} ÷ ${m} = ${10 + digit}。所以個位是 ${digit}。<br>或是用尾數判斷：什麼數乘以 ${m} 的尾數會是 ${ans % 10}？答案是 ${digit}。`
+                };
+            }
+        },
+        {
+            title: "找規律 (等差數列)",
+            generate: () => {
+                const start = randomInt(1, 10);
+                const diff = randomInt(2, 6);
+                const n = randomInt(30, 60);
+                const ans = start + (n - 1) * diff;
+                return {
+                    question: `有一串數：${start}, ${start+diff}, ${start+diff*2}, ${start+diff*3} ... 第 ${n} 個數是多少？`,
+                    answer: ans.toString(),
+                    explanation: `這是首項 ${start}，公差 ${diff} 的等差數列。<br>公式：第 ${n} 項 = ${start} + (${n} - 1) x ${diff} = ${ans}。`
+                };
+            }
+        },
+        {
+            title: "代數推理",
+            generate: () => {
+                const a = randomInt(2, 9);
+                const b = randomInt(a + 1, 12);
+                const sum = a + b;
+                const product = a * b;
+                const diff = b - a;
+                return {
+                    question: `若 A x B = ${product}，且 A + B = ${sum}，請問 A 和 B 相差多少？(大減小)`,
+                    answer: diff.toString(),
+                    explanation: `找出兩個數，相乘是 ${product} 且相加是 ${sum}。這兩個數是 ${a} 和 ${b}。<br>相差：${b} - ${a} = ${diff}。`
+                };
+            }
+        },
+        {
+            title: "倍數判別 (11的倍數)",
+            generate: () => {
+                const d1 = randomInt(1, 9);
+                const d2 = randomInt(0, 9);
+                const d4 = randomInt(0, 9);
+                const d5 = randomInt(0, 9);
+                let ans = -1;
+                for(let x=0; x<=9; x++) {
+                    let oddSum = d1 + x + d5;
+                    let evenSum = d2 + d4;
+                    if ((oddSum - evenSum) % 11 === 0) {
+                        ans = x;
+                        break;
+                    }
+                }
+                if(ans === -1) return generators[4].generate();
+
+                return {
+                    question: `五位數 <span class="math-expr">${d1}${d2}🔲${d4}${d5}</span> 是 11 的倍數。請問 🔲 是多少？`,
+                    answer: ans.toString(),
+                    explanation: `11 的倍數判別法：(奇數位數字和) - (偶數位數字和) = 0 或 11 的倍數。<br>帶入計算後，只有填入 ${ans} 能符合條件。`
+                };
+            }
+        },
+        {
+            title: "尾數推理",
+            generate: () => {
+                const add = randomInt(3, 8);
+                const resDigit = randomInt(0, 9); 
+                let prodLastDigit = (resDigit - add);
+                if (prodLastDigit < 0) prodLastDigit += 10;
+                
+                let ansText = "";
+                if (prodLastDigit === 5) ansText = "奇數";
+                else if (prodLastDigit === 0) ansText = "偶數";
+                else return generators[5].generate();
+
+                return {
+                    question: `一個整數 🔲 乘以 5 後，再加上 ${add}，結果的個位數字是 ${resDigit}。請問 🔲 是奇數還是偶數？`,
+                    answer: ansText + ",奇,偶",
+                    explanation: `結果尾數是 ${resDigit}，減去 ${add} 後，(🔲 x 5) 的尾數是 ${prodLastDigit}。<br>乘 5 尾數是 ${prodLastDigit}，原數必定是<strong>${ansText}</strong>。`
+                };
+            }
+        },
+        {
+            title: "日期推理",
+            generate: () => {
+                const days = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+                const todayIdx = randomInt(0, 6);
+                const passDays = randomInt(50, 200);
+                const futureIdx = (todayIdx + passDays) % 7;
+                const fullAns = days[futureIdx];
+                const shortAns = fullAns.replace("星期", "");
+
+                return {
+                    question: `如果今天是${days[todayIdx]}，過了 ${passDays} 天後是星期幾？`,
+                    answer: `${fullAns},${shortAns}`,
+                    explanation: `${passDays} ÷ 7 = ${Math.floor(passDays/7)} ... ${passDays%7}。<br>從${days[todayIdx]}往後推 ${passDays%7} 天，就是${fullAns}。`
+                };
+            }
+        },
+        {
+            title: "年齡問題",
+            generate: () => {
+                const n = randomInt(3, 10);
+                const k = 3;
+                const sonFuture = randomInt(12, 20); 
+                const fatherFuture = sonFuture * k;
+                const sonNow = sonFuture - n;
+                const fatherNow = fatherFuture - n;
+
+                return {
+                    question: `爸爸今年 ${fatherNow} 歲，兒子今年 ${sonNow} 歲。幾年後爸爸的年齡會是兒子的 ${k} 倍？`,
+                    answer: n.toString(),
+                    explanation: `兩人年齡差不變：${fatherNow} - ${sonNow} = ${fatherNow - sonNow} 歲。<br>當變成 ${k} 倍時，年齡差是兒子的 (${k}-1) 倍。<br>那時兒子歲數 = ${fatherNow - sonNow} ÷ ${k-1} = ${sonFuture} 歲。<br>所以是 ${sonFuture} - ${sonNow} = ${n} 年後。`
+                };
+            }
+        },
+        {
+            title: "行程問題 (相遇)",
+            generate: () => {
+                const speedA = randomInt(40, 60);
+                const speedB = randomInt(30, 50);
+                const hours = randomInt(2, 5);
+                const distance = (speedA + speedB) * hours;
+                
+                return {
+                    question: `甲乙兩地相距 ${distance} 公里。A 車時速 ${speedA} 公里，B 車時速 ${speedB} 公里，兩人同時相向而行。多久後相遇？(小時)`,
+                    answer: hours.toString(),
+                    explanation: `相遇時間 = 總距離 ÷ 速度和<br>${distance} ÷ (${speedA} + ${speedB}) = ${distance} ÷ ${speedA+speedB} = ${hours} 小時。`
+                };
+            }
+        },
+        {
+            title: "餘數週期",
+            generate: () => {
+                const power = randomInt(20, 50);
+                const remainderSeq = [0, 3, 4, 2, 1];
+                const mod = power % 4;
+                const ans = (mod === 0) ? 1 : remainderSeq[mod];
+                return {
+                    question: `3 的 ${power} 次方 ($3^{${power}}$) 除以 5 的餘數是多少？`,
+                    answer: ans.toString(),
+                    explanation: `3 的次方除以 5 的餘數規律為：3, 4, 2, 1 (每 4 個一循環)。<br>${power} ÷ 4 = ${Math.floor(power/4)} ... ${mod}。<br>${mod === 0 ? '整除，所以是第 4 個數' : `餘數是 ${mod}，所以是第 ${mod} 個數`}，答案是 ${ans}。`
+                };
+            }
+        }
+    ];
+
+    function initQuiz() {
+        const container = document.getElementById('questions-container');
+        container.innerHTML = '';
+        
+        for (let i = 0; i < 20; i++) {
+            const genIndex = (i < 10) ? i : randomInt(0, generators.length - 1);
+            const data = generators[genIndex].generate();
+            
+            const card = document.createElement('div');
+            card.className = 'question-card';
+            card.innerHTML = `
+                <div class="question-title">第 ${i + 1} 題：${data.title}</div>
+                <p>${data.question}</p>
+                <div class="input-group">答案：<input type="text" data-answer="${data.answer}" autocomplete="off"></div>
+                <div class="solution">
+                    <strong>答案：${data.answer.split(',')[0]}</strong><br>
+                    解析：${data.explanation}
+                </div>
+            `;
+            container.appendChild(card);
+        }
+        
+        document.getElementById('scoreBoard').style.display = 'none';
+        
+        // 刷新時自動滾動到最上方
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function checkAnswers(event) {
+        event.preventDefault();
+        let score = 0;
+        const cards = document.querySelectorAll('.question-card');
+        
+        cards.forEach(card => {
+            const input = card.querySelector('input');
+            const solutionDiv = card.querySelector('.solution');
+            const correctAnswers = input.getAttribute('data-answer').split(',');
+            let userAnswer = input.value.trim();
+            
+            input.classList.remove('correct-input', 'incorrect-input');
+            
+            if (correctAnswers.includes(userAnswer)) {
+                score++;
+                input.classList.add('correct-input');
+            } else {
+                input.classList.add('incorrect-input');
+            }
+            solutionDiv.style.display = 'block';
+        });
+
+        const scoreBoard = document.getElementById('scoreBoard');
+        scoreBoard.style.display = 'block';
+        scoreBoard.innerHTML = `得分：${score} / 20`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.onload = initQuiz;
+</script>
+
+</body>
+</html>

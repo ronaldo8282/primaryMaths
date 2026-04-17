@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>質因數分解遊戲</title>
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React/ReactDOM CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { background: #f3f4f6; }
+    #root { min-height: 100vh; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      #root { background: #fff !important; box-shadow: none !important; }
+    }
+    .difficulty-selected {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+      background-color: #eff6ff;
+    }
+    .animate-correct { animation: correctPulse 0.35s; }
+    @keyframes correctPulse {
+      0% { background-color: #bbf7d0; transform: scale(1); }
+      50% { background-color: #22c55e; transform: scale(1.13); }
+      100% { background-color: #bbf7d0; transform: scale(1); }
+    }
+    .animate-wrong { animation: wrongShake 0.35s; }
+    @keyframes wrongShake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      50% { transform: translateX(8px); }
+      75% { transform: translateX(-8px); }
+      100% { transform: translateX(0); }
+    }
+    .fade-in { animation: fadeIn 0.5s; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+
+  const SINGLE_PRIMES = [2, 3, 5, 7];
+  const ALL_PRIMES = [2, 3, 5, 7, 11, 13, 17, 19];
+
+  function generateMultiple(factors, existing, difficulty) {
+    let product = 0;
+    let tryCount = 0;
+    while (true) {
+      let indices = [];
+      let count = Math.floor(Math.random() * 3) + 2;
+      while (indices.length < count) {
+        let idx = Math.floor(Math.random() * 5);
+        indices.push(idx);
+      }
+      product = indices.map(i => factors[i]).reduce((a, b) => a * b, 1);
+      let valid = false;
+      if (difficulty === "basic") {
+        valid = (product >= 10 && product <= 999);
+      } else if (difficulty === "advanced") {
+        valid = (product >= 10 && product <= 9999);
+      }
+      if (!valid) continue;
+      if (!existing.has(product)) return product;
+      tryCount++;
+      if (tryCount > 100) break;
+    }
+    return null;
+  }
+
+  function getPrimeFactors() {
+    let singlePool = [...SINGLE_PRIMES];
+    let singleResult = [];
+    while (singleResult.length < 3) {
+      const idx = Math.floor(Math.random() * singlePool.length);
+      singleResult.push(singlePool[idx]);
+      singlePool.splice(idx, 1);
+    }
+    let restPool = ALL_PRIMES.filter(x => !singleResult.includes(x));
+    let restResult = [];
+    while (restResult.length < 2) {
+      const idx = Math.floor(Math.random() * restPool.length);
+      restResult.push(restPool[idx]);
+      restPool.splice(idx, 1);
+    }
+    return [...singleResult, ...restResult];
+  }
+
+  function getAllPrimeFactors(n, factors) {
+    let result = [];
+    let remain = n;
+    for (let f of factors) {
+      while (remain % f === 0) {
+        result.push(f);
+        remain /= f;
+      }
+    }
+    return result;
+  }
+
+  function MultiplierGame() {
+    const [gameStarted, setGameStarted] = React.useState(false);
+    const [numQuestions, setNumQuestions] = React.useState(null);
+    const [factors, setFactors] = React.useState([]);
+    const [currentQ, setCurrentQ] = React.useState(1);
+    const [multiples, setMultiples] = React.useState([]);
+    const [current, setCurrent] = React.useState(0);
+    const [selected, setSelected] = React.useState([]);
+    const [timer, setTimer] = React.useState(0);
+    const [running, setRunning] = React.useState(false);
+    const intervalRef = React.useRef(null);
+    const [mainAnim, setMainAnim] = React.useState(false);
+    const [recordAnimIdx, setRecordAnimIdx] = React.useState(null);
+    const [records, setRecords] = React.useState([]);
+    const [mistakes, setMistakes] = React.useState(0);
+    const MAX_MISTAKES = 5;
+    const [gameOver, setGameOver] = React.useState(false);
+    const [submitAnim, setSubmitAnim] = React.useState(null);
+    const [difficulty, setDifficulty] = React.useState("basic");
+    const [chosenDifficulty, setChosenDifficulty] = React.useState("basic");
+    const [showSkipChoice, setShowSkipChoice] = React.useState(false);
+    const [lastWrongAnswer, setLastWrongAnswer] = React.useState([]);
+
+    React.useEffect(() => {
+      if (running) {
+        intervalRef.current = setInterval(() => setTimer(t => t + 1), 1000);
+      } else if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      return () => intervalRef.current && clearInterval(intervalRef.current);
+    }, [running]);
+
+    const handleStart = (n) => {
+      const f = getPrimeFactors();
+      let ms = [];
+      let existing = new Set();
+      while (ms.length < n) {
+        const m = generateMultiple(f, existing, difficulty);
+        if (m) {
+          ms.push(m);
+          existing.add(m);
+        }
+      }
+      setFactors(f);
+      setMultiples(ms);
+      setCurrentQ(1);
+      setCurrent(ms[0]);
+      setSelected([]);
+      setTimer(0);
+      setRunning(true);
+      setRecords([]);
+      setMistakes(0);
+      setGameOver(false);
+      setGameStarted(true);
+      setNumQuestions(n);
+      setMainAnim(true);
+      setShowSkipChoice(false);
+      setLastWrongAnswer([]);
+      setChosenDifficulty(difficulty);
+      setTimeout(() => setMainAnim(false), 400);
+    };
+
+    const handleSelect = (factor) => {
+      if (!running || gameOver || showSkipChoice) return;
+      setSelected(prev => [...prev, factor]);
+    };
+
+    const handleRemoveLast = () => {
+      if (!running || gameOver || selected.length === 0 || showSkipChoice) return;
+      setSelected(prev => prev.slice(0, -1));
+    };
+    
+    const advanceToNextQuestion = () => {
+      if (currentQ >= numQuestions) {
+          setRunning(false);
+          setGameOver(true);
+          return;
+      }
+      
+      setRunning(false);
+      setTimeout(() => {
+          setCurrentQ(q => q + 1);
+          setCurrent(multiples[currentQ]); 
+          setSelected([]);
+          setTimer(0);
+          setRunning(true);
+          setMainAnim(true);
+          setTimeout(() => setMainAnim(false), 400);
+      }, 900);
+    };
+
+    const handleSubmit = () => {
+      if (!running || gameOver || selected.length === 0) return;
+      const product = selected.reduce((a, b) => a * b, 1);
+      const correctFactors = getAllPrimeFactors(current, factors);
+      const isCorrect = product === current && selected.length === correctFactors.length && [...selected].sort((a, b) => a - b).join(",") === correctFactors.sort((a, b) => a - b).join(",");
+
+      if (isCorrect) {
+          setSubmitAnim("correct");
+          setTimeout(() => setSubmitAnim(null), 350);
+          setRecords(prev => [...prev, { question: currentQ, multiple: current, answer: selected.slice(), correct: true, time: timer + 1, skipped: false }]);
+          setRecordAnimIdx(records.length);
+          setTimeout(() => setRecordAnimIdx(null), 600);
+          advanceToNextQuestion();
+      } else {
+          setSubmitAnim("wrong");
+          setTimeout(() => setSubmitAnim(null), 350);
+          setLastWrongAnswer(selected.slice()); // Store the wrong answer
+          const newMistakes = mistakes + 1;
+          setMistakes(newMistakes);
+          
+          if (newMistakes >= MAX_MISTAKES) {
+              setRunning(false);
+              setRecords(prev => [...prev, { question: currentQ, multiple: current, answer: selected.slice(), correct: false, time: timer + 1, skipped: false }]);
+              setRecordAnimIdx(records.length);
+              setTimeout(() => setGameOver(true), 600);
+          } else {
+              setRunning(false); 
+              setShowSkipChoice(true);
+          }
+      }
+    };
+
+    const handleRetry = () => {
+      setShowSkipChoice(false);
+      setSelected([]);
+      setRunning(true); 
+    };
+
+    const handleConfirmSkip = () => {
+      setShowSkipChoice(false);
+      setRecords(prev => [...prev, { question: currentQ, multiple: current, answer: lastWrongAnswer, correct: false, time: timer + 1, skipped: true }]);
+      setRecordAnimIdx(records.length);
+      setTimeout(() => setRecordAnimIdx(null), 600);
+      advanceToNextQuestion();
+    };
+
+    const restartGame = () => {
+      setGameStarted(false);
+      setNumQuestions(null);
+    };
+
+    const totalTime = records.reduce((acc, rec) => acc + rec.time, 0);
+    const correctCount = records.filter(rec => rec.correct).length;
+    const difficultyText = chosenDifficulty === "basic" ? "第一級：基本因數" : "第二級：進階因數";
+
+    const RecordsTable = ({isFinal}) => (
+      <div className={`mt-8 ${isFinal ? 'fade-in' : ''}`}>
+        <div className="mb-2 text-lg font-bold text-green-700">解題記錄</div>
+        {isFinal && (
+          <>
+            <div className="mb-2">
+              <span className="text-base font-semibold text-gray-700">
+                難度：<span className="text-blue-700">{difficultyText}</span>
+              </span>
+            </div>
+            <div className="mb-2">
+              <span className="text-base font-semibold text-gray-700">
+                共完成 <span className="font-bold">{records.length}</span> / {numQuestions} 題，答對 <span className="text-green-700">{correctCount}</span> 題
+              </span>
+            </div>
+          </>
+        )}
+        <div className="max-h-80 overflow-y-auto border rounded bg-gray-50 p-3 mb-4">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="py-1 px-2">題號</th>
+                <th className="py-1 px-2">倍數</th>
+                <th className="py-1 px-2">你的答案</th>
+                <th className="py-1 px-2">結果</th>
+                <th className="py-1 px-2">用時(秒)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map((rec, i) => (
+                <tr key={i} className={`border-b ${recordAnimIdx === i ? "fade-in" : ""}`}>
+                  <td className="py-1 px-2">{rec.question}</td>
+                  <td className="py-1 px-2">{rec.multiple}</td>
+                  <td className="py-1 px-2">
+                    {rec.answer.join(" × ")}
+                    {rec.skipped && <span className="text-orange-500 italic ml-2">(跳過)</span>}
+                  </td>
+                  <td className="py-1 px-2">
+                    {rec.correct ? (<span className="text-green-600 font-bold">✔</span>) : (<span className="text-red-600 font-bold">✘</span>)}
+                  </td>
+                  <td className="py-1 px-2">{rec.time}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {isFinal && (
+          <div className="text-lg font-bold text-blue-700 mb-4">
+            總用時：{totalTime} 秒
+          </div>
+        )}
+      </div>
+    );
+
+    return (
+      <div className="max-w-2xl mx-auto mt-8 p-6 rounded-lg shadow-lg bg-white">
+        <div className="flex justify-end mb-4 no-print">
+          <button onClick={() => window.print()} className="py-2 px-4 bg-gray-700 text-white rounded hover:bg-gray-900">列印（PDF）</button>
+        </div>
+        {!gameStarted ? (
+          <div className="flex flex-col items-center gap-8">
+            <div className="w-full bg-gray-100 p-4 rounded-lg border">
+              <h3 className="text-xl font-bold text-center mb-2">遊戲規則</h3>
+              <p className="text-gray-700">當遊戲出現一個「倍數」時，您需要從下方提供的五個「因數」選項中，重複選出所有正確的因數，並確保它們相乘的結果等於該「倍數」。</p>
+              <p className="text-gray-700 mt-2"><span className="font-bold">例如：</span>如果倍數是 <span className="font-bold text-blue-600">150</span>，而可選因數是 <span className="font-bold text-green-600">[2, 3, 5, 7, 11]</span>，正確答案就是 <span className="font-bold text-purple-600">2 × 3 × 5 × 5</span>。</p>
+            </div>
+            <div className="w-full">
+              <h3 className="text-xl font-bold text-center mb-4">1. 選擇難度等級</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${difficulty === 'basic' ? 'difficulty-selected' : 'border-gray-200 hover:border-blue-400'}`} onClick={() => setDifficulty('basic')}>
+                  <div className="flex items-center"><input type="radio" name="difficulty" value="basic" checked={difficulty === "basic"} readOnly className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"/><div><div className="font-bold text-lg">第一級：基本因數</div><div className="text-sm text-gray-600">此級別包括較簡單的 <span className="font-semibold">2或3位數</span> 倍數。</div></div></div>
+                </label>
+                <label className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${difficulty === 'advanced' ? 'difficulty-selected' : 'border-gray-200 hover:border-blue-400'}`} onClick={() => setDifficulty('advanced')}>
+                  <div className="flex items-center"><input type="radio" name="difficulty" value="advanced" checked={difficulty === "advanced"} readOnly className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"/><div><div className="font-bold text-lg">第二級：進階因數</div><div className="text-sm text-gray-600">挑戰更複雜的 <span className="font-semibold">2至4位數</span> 倍數。</div></div></div>
+                </label>
+              </div>
+            </div>
+            <div className="w-full">
+              <h3 className="text-xl font-bold text-center mb-4">2. 選擇挑戰題數</h3>
+              <div className="flex justify-center gap-4 md:gap-8">
+                <button className="py-3 px-6 md:px-8 bg-purple-500 text-white rounded-lg text-lg md:text-xl font-bold hover:bg-purple-600 transition-transform duration-200 active:scale-95" onClick={() => handleStart(5)}>5 題</button>
+                <button className="py-3 px-6 md:px-8 bg-blue-500 text-white rounded-lg text-lg md:text-xl font-bold hover:bg-blue-600 transition-transform duration-200 active:scale-95" onClick={() => handleStart(10)}>10 題</button>
+                <button className="py-3 px-6 md:px-8 bg-green-500 text-white rounded-lg text-lg md:text-xl font-bold hover:bg-green-600 transition-transform duration-200 active:scale-95" onClick={() => handleStart(20)}>20 題</button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {(!gameOver && currentQ <= numQuestions) ? (
+              <>
+                <div className={`${submitAnim === 'wrong' ? 'animate-wrong' : ''}`}>
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="text-xl text-gray-500">第 {currentQ} / {numQuestions} 題</div>
+                    <div className="text-lg font-mono">用時：{timer}s</div>
+                  </div>
+                  <div className={`flex justify-between items-center mb-4 transition-all ${mainAnim ? "fade-in" : ""}`}><div className="text-3xl font-bold">倍數：{current}</div></div>
+                  <div className="mb-2"><span className="text-sm text-gray-500">你的答案：</span><span className="text-blue-600 text-lg ml-2">{selected.length ? selected.join(" × ") : "（尚未選擇）"}</span></div>
+                  <div className="mb-4"><span className="text-red-600 font-bold">剩餘錯誤額度：{MAX_MISTAKES - mistakes}</span></div>
+                  
+                  {showSkipChoice ? (
+                    <div className="p-4 bg-red-100 border-l-4 border-red-500 rounded fade-in">
+                      <h4 className="font-bold text-red-800">答案錯誤！</h4>
+                      <p className="text-red-700 mb-4">您可以重試此題，或選擇跳過。</p>
+                      <div className="flex gap-4">
+                        <button className="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600 font-bold" onClick={handleRetry}>重試此題</button>
+                        <button className="w-full py-2 bg-orange-500 text-white rounded hover:bg-orange-600 font-bold" onClick={handleConfirmSkip}>跳過 (不扣分)</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        {factors.map((f, idx) => (<button key={idx} className="py-2 px-4 rounded font-bold text-xl transition-all duration-150 border-2 bg-blue-200 text-blue-900 border-blue-200 hover:bg-blue-400 active:scale-95" onClick={() => handleSelect(f)} disabled={!running || gameOver}>{f}</button>))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <button className="py-2 bg-yellow-400 text-white rounded hover:bg-yellow-500 font-bold" onClick={handleRemoveLast} disabled={!running || gameOver || selected.length === 0}>移除最後一個</button>
+                        <button className={`py-2 text-white rounded font-bold text-lg transition-all duration-200 active:scale-95 ${submitAnim === "correct" ? "animate-correct bg-green-500" : "bg-green-500 hover:bg-green-600"}`} onClick={handleSubmit} disabled={!running || gameOver || selected.length === 0}>提交答案</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {records.length > 0 && <RecordsTable isFinal={false} />}
+                
+                <button className="w-full mt-8 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400" onClick={restartGame}>返回主選單</button>
+              </>
+            ) : (
+              <>
+                <div className="mb-2 text-2xl font-bold text-red-700">
+                  {mistakes >= MAX_MISTAKES ? "遊戲結束！錯誤次數已用完。" : "挑戰完成！"}
+                </div>
+                <RecordsTable isFinal={true} />
+                <button
+                  className="w-full py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-transform duration-200 active:scale-95 no-print"
+                  onClick={restartGame}
+                >
+                  再玩一次
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<MultiplierGame />);
+  </script>
+</body>
+</html>

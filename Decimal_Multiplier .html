@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decimal Multiplication Practice 🧮</title>
+  <style>
+    body {
+      font-family: 'Comic Sans MS', Arial, sans-serif;
+      background: linear-gradient(135deg, #a8e6cf, #dcedc1);
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    header {
+      background: #4CAF50;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 { margin: 0; font-size: 2.3em; }
+    .info {
+      text-align: center;
+      padding: 10px;
+      background: #f0f8f0;
+      font-size: 1.2em;
+    }
+    .questions-container {
+      padding: 30px 40px;
+    }
+    .question-item {
+      display: flex;
+      align-items: center;
+      margin: 18px 0;
+      font-size: 1.6em;
+      gap: 15px;
+    }
+    .question-number {
+      font-weight: bold;
+      color: #4CAF50;
+      width: 40px;
+    }
+    .question-text {
+      flex: 1;
+      color: #2c3e50;
+    }
+    input {
+      font-size: 1.5em;
+      padding: 10px 15px;
+      width: 180px;
+      text-align: center;
+      border: 3px solid #4CAF50;
+      border-radius: 12px;
+    }
+    .btn {
+      font-size: 1.4em;
+      padding: 12px 30px;
+      margin: 20px 10px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .btn-submit { background: #FF9800; color: white; }
+    .btn-next { background: #2196F3; color: white; }
+    .btn-new { background: #4CAF50; color: white; }
+
+    .feedback {
+      margin-top: 30px;
+      padding: 20px;
+      border-radius: 15px;
+      background: #f9f9f9;
+    }
+    .result {
+      margin: 12px 0;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 1.3em;
+    }
+    .correct { background: #e8f5e9; color: #2e7d32; }
+    .wrong { background: #ffebee; color: #c62828; }
+    .summary {
+      font-size: 1.8em;
+      text-align: center;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌟 Decimal Multiplication Practice 🌟</h1>
+    </header>
+
+    <div class="info">
+      Answer all 10 questions, then click <strong>Submit Answers</strong>
+    </div>
+
+    <div class="questions-container" id="questions-container">
+      <!-- Questions will be generated here by JavaScript -->
+    </div>
+
+    <div style="text-align: center; padding: 20px;">
+      <button class="btn btn-submit" onclick="submitAnswers()">Submit Answers ✅</button>
+      <button class="btn btn-next" onclick="nextSet()" id="nextBtn" style="display:none;">Next 10 Questions →</button>
+      <button class="btn btn-new" onclick="startNewSet()">New Quiz 🔄</button>
+    </div>
+
+    <div class="feedback" id="feedback" style="display:none;">
+      <!-- Results will appear here -->
+    </div>
+  </div>
+
+  <script>
+    let currentQuestions = [];
+    let userAnswers = [];
+
+    // Generate one question
+    function generateQuestion(level) {
+      let a, b;
+
+      if (level === 'normal') {
+        a = (Math.random() * 9 + 1).toFixed(1);
+        b = (Math.random() * 6 + 1).toFixed(1);
+      } else if (level === 'medium') {
+        a = (Math.random() * 25 + 2).toFixed(Math.random() > 0.5 ? 1 : 2);
+        b = (Math.random() * 10 + 1).toFixed(Math.random() > 0.5 ? 1 : 2);
+      } else { // hard
+        a = (Math.random() * 60 + 10).toFixed(2);
+        b = (Math.random() * 15 + 3).toFixed(2);
+      }
+
+      const numA = parseFloat(a);
+      const numB = parseFloat(b);
+      const correct = (numA * numB).toFixed(4).replace(/\.?0+$/, '');
+
+      return {
+        q: `${numA} × ${numB}`,
+        answer: correct,
+        level: level
+      };
+    }
+
+    // Create a new set of 10 questions (with level distribution)
+    function createNewSet() {
+      currentQuestions = [];
+      userAnswers = [];
+
+      // 30% Normal, 30% Medium, 40% Hard → for 10 questions
+      const counts = { normal: 3, medium: 3, hard: 4 };
+
+      for (let level in counts) {
+        for (let i = 0; i < counts[level]; i++) {
+          currentQuestions.push(generateQuestion(level));
+        }
+      }
+
+      // Shuffle the 10 questions
+      currentQuestions.sort(() => Math.random() - 0.5);
+    }
+
+    function displayQuestions() {
+      const container = document.getElementById('questions-container');
+      container.innerHTML = '';
+
+      currentQuestions.forEach((q, index) => {
+        const div = document.createElement('div');
+        div.className = 'question-item';
+        div.innerHTML = `
+          <span class="question-number">${index + 1}.</span>
+          <span class="question-text">${q.q} = </span>
+          <input type="text" id="ans-${index}" placeholder="?" autocomplete="off">
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function submitAnswers() {
+      let score = 0;
+      let feedbackHTML = `<div class="summary">Your Score: <span id="score"></span>/10</div>`;
+
+      currentQuestions.forEach((q, index) => {
+        const input = document.getElementById(`ans-${index}`);
+        const userAns = input ? input.value.trim() : '';
+        const correctAns = q.answer;
+
+        const userNum = parseFloat(userAns);
+        const correctNum = parseFloat(correctAns);
+
+        const isCorrect = !isNaN(userNum) && Math.abs(userNum - correctNum) < 0.0001;
+
+        if (isCorrect) {
+          score++;
+          feedbackHTML += `
+            <div class="result correct">
+              ${index + 1}. ✅ Correct! ${q.q} = ${correctAns}
+            </div>`;
+        } else {
+          feedbackHTML += `
+            <div class="result wrong">
+              ${index + 1}. ❌ Wrong. ${q.q} = ${correctAns} 
+              ${userAns ? `(You entered: ${userAns})` : '(No answer)'}
+            </div>`;
+        }
+      });
+
+      feedbackHTML += `<div style="text-align:center; margin-top:25px;">
+        <button class="btn btn-next" onclick="nextSet()">Next 10 Questions →</button>
+      </div>`;
+
+      document.getElementById('feedback').innerHTML = feedbackHTML;
+      document.getElementById('feedback').style.display = 'block';
+      document.getElementById('score').textContent = score;
+
+      // Hide submit button and show next button
+      document.querySelector('.btn-submit').style.display = 'none';
+      document.getElementById('nextBtn').style.display = 'inline-block';
+    }
+
+    function nextSet() {
+      createNewSet();
+      displayQuestions();
+      
+      document.getElementById('feedback').style.display = 'none';
+      document.querySelector('.btn-submit').style.display = 'inline-block';
+      document.getElementById('nextBtn').style.display = 'none';
+    }
+
+    function startNewSet() {
+      createNewSet();
+      displayQuestions();
+      
+      document.getElementById('feedback').style.display = 'none';
+      document.querySelector('.btn-submit').style.display = 'inline-block';
+      document.getElementById('nextBtn').style.display = 'none';
+    }
+
+    // Start the first set when page loads
+    window.onload = startNewSet;
+  </script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文章朗讀（粵語/國語/英語，高亮）</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 2vw; line-height: 1.6; background: #fafbfd; }
+  h1 { color: #1474d4; font-size: 1.5em; margin-bottom: 10px;}
+  #inputBox { width: 100%; min-height: 20vh; max-height: 200px; font-size: 1em; margin-bottom: 10px; padding: 8px; border-radius:8px; border:1px #bbb solid;}
+  #controls, #ctrl2 { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items:center;}
+  #controls select, #controls input { padding:3px 6px; font-size: 1em;}
+  #controls button, #ctrl2 button { padding: 4px 12px; font-size: 1em;}
+  #articleBox {
+    width: 100%; min-height: 20vh; max-height:40vh; margin-top: 6px; padding: 8px;
+    background: #f4f4f4; font-size: 1em; border: 1px solid #ddd; border-radius: 8px; overflow-y: auto;
+  }
+  .line { padding: 2px 0; word-break: break-all; }
+  .highlight {
+    background: #fffacd !important;
+    color: #1474d4 !important;
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 2px 4px;
+    transition: background 0.3s;
+  }
+  #preview, #notice {margin-top:10px; font-size:.95em;}
+  #notice { color:#d70022; font-weight:bold; }
+  @media (max-width:600px){
+    #controls { flex-direction:column; align-items:flex-start;}
+    h1{font-size: 1.1em;}
+  }
+</style>
+</head>
+<body>
+<h1>文章朗讀（粵語/國語/英語，高亮）</h1>
+<textarea id="inputBox" placeholder="在這裡貼上你要朗讀的文字"></textarea>
+<div id="ctrl2">
+  <button onclick="clearContent()">清除內容</button>
+  <button onclick="pasteContent()">貼上</button>
+</div>
+<div id="preview">預覽：尚未輸入文字</div>
+<div id="notice"></div>
+<div id="controls">
+  <label for="lang">朗讀語言：</label>
+  <select id="lang">
+    <option value="zh-HK" selected>粵語</option>
+    <option value="zh-TW">國語（台灣）</option>
+    <option value="zh-CN">國語（中國）</option>
+    <option value="en-US">英語</option>
+  </select>
+  
+  <label id="voiceLabel" for="voice">語音：</label>
+  <select id="voice" style="display:none"></select>
+  
+  <label for="rate">速度：</label>
+  <select id="rate">
+    <option value="2">2倍速</option>
+    <option value="4">4倍速</option>
+    <option value="6" selected>6倍速</option>
+    <option value="8">8倍速</option>
+    <option value="10">10倍速</option>
+  </select>
+  <input type="number" id="customRate" min="0.1" max="20" step="0.1" style="width:3.5em;" placeholder="自訂">
+  <label for="customRate" style="font-size:0.97em;">自訂速度</label>
+  
+  <button onclick="startReading()">開始朗讀</button>
+  <button onclick="pauseReading()">暫停</button>
+  <button onclick="resumeReading()">繼續</button>
+  <button onclick="stopReading()">停止</button>
+</div>
+<div id="articleBox"></div>
+<script>
+const synth = window.speechSynthesis;
+let utterance = null, isPaused = false, voices = [], lines = [], currentLine = -1, breakTimeout = null;
+let cantoneseVoices = [], mandarinTWVoices = [], mandarinCNVoices = [], engVoices = [];
+function loadVoices() {
+  voices = synth.getVoices();
+  cantoneseVoices = voices.filter(v =>
+    v.lang && v.lang.toLowerCase().startsWith('zh-hk') && !v.name.includes('Google')
+  );
+  mandarinTWVoices = voices.filter(v =>
+    v.lang && v.lang.toLowerCase().startsWith('zh-tw') && !v.name.includes('Google')
+  );
+  mandarinCNVoices = voices.filter(v =>
+    v.lang && v.lang.toLowerCase().startsWith('zh-cn') && !v.name.includes('Google')
+  );
+  engVoices = voices.filter(v => v.lang === "en-US");
+  updateVoiceSelect();
+  updatePreview();
+}
+function updateVoiceSelect() {
+  const lang = getCurrentLang();
+  const voiceSelect = document.getElementById("voice");
+  const label = document.getElementById("voiceLabel");
+  voiceSelect.innerHTML = "";
+  let options = [];
+  if (lang === "zh-HK" && cantoneseVoices.length > 0) {
+    options = cantoneseVoices;
+  } else if (lang === "zh-TW" && mandarinTWVoices.length > 0) {
+    options = mandarinTWVoices;
+  } else if (lang === "zh-CN" && mandarinCNVoices.length > 0) {
+    options = mandarinCNVoices;
+  }
+  if (options.length > 0) {
+    voiceSelect.style.display = "";
+    label.style.display = "";
+    options.forEach((v, i) => {
+      let txt = v.name + (v.localService ? " (本地)" : " (線上)");
+      let opt = document.createElement('option');
+      opt.value = i;
+      opt.text = txt;
+      voiceSelect.appendChild(opt);
+    });
+  } else {
+    voiceSelect.style.display = "none";
+    label.style.display = "none";
+  }
+}
+synth.onvoiceschanged = loadVoices;
+setTimeout(loadVoices, 500);
+function getCurrentLang() {
+  return document.getElementById("lang").value;
+}
+function updatePreview() {
+  const content = document.getElementById("inputBox").value.trim();
+  const lang = getCurrentLang();
+  updateVoiceSelect();
+  let voiceName = '';
+  let vlist = [];
+  if (lang === "zh-HK" && cantoneseVoices.length > 0) {
+    vlist = cantoneseVoices;
+  } else if (lang === "zh-TW" && mandarinTWVoices.length > 0) {
+    vlist = mandarinTWVoices;
+  } else if (lang === "zh-CN" && mandarinCNVoices.length > 0) {
+    vlist = mandarinCNVoices;
+  } else if (lang === "en-US" && engVoices.length > 0) {
+    vlist = engVoices;
+  }
+  if (vlist.length > 0) {
+    const selVoice = vlist[getSelectedVoiceIndex()] || vlist[0];
+    voiceName = selVoice ? selVoice.name : "";
+  }
+  let langLabel = "未知";
+  if (lang === "zh-HK") langLabel = "粵語";
+  if (lang === "zh-TW") langLabel = "國語（台灣）";
+  if (lang === "zh-CN") langLabel = "國語（中國）";
+  if (lang === "en-US") langLabel = "英語";
+  document.getElementById("preview").innerText = `預覽朗讀：${langLabel}${voiceName ? "（" + voiceName + "）" : ""}`;
+  let ls = content.split(/\n/).filter(x => x.trim());
+  lines = ls;
+  renderArticle(lines);
+  updateNotice();
+}
+function updateNotice() {
+  const lang = getCurrentLang();
+  let notice = '';
+  if (lang==="zh-HK" && cantoneseVoices.length===0) notice="⚠️ 找不到非 Google 的粵語語音，請安裝或啟用系統粵語語音包。";
+  if (lang==="zh-TW" && mandarinTWVoices.length===0) notice="⚠️ 找不到台灣國語語音，請安裝或啟用系統國語語音包。";
+  if (lang==="zh-CN" && mandarinCNVoices.length===0) notice="⚠️ 找不到大陸國語語音，請安裝或啟用系統國語語音包。";
+  document.getElementById("notice").innerText = notice;
+}
+function getSelectedVoiceIndex() {
+  const sel = document.getElementById("voice");
+  return sel && sel.value ? parseInt(sel.value, 10) : 0;
+}
+document.getElementById("inputBox").addEventListener("input", updatePreview);
+document.getElementById("lang").addEventListener("change", updatePreview);
+document.getElementById("voice").addEventListener("change", updatePreview);
+function renderArticle(lines, hlIndex = -1) {
+  const box = document.getElementById("articleBox");
+  box.innerHTML = '';
+  lines.forEach((line, i) => {
+    const div = document.createElement('div');
+    div.className = 'line';
+    div.textContent = line;
+    if (i === hlIndex) {
+      div.classList.add('highlight');
+      setTimeout(() => {
+        div.scrollIntoView({behavior: 'smooth', block: 'center'});
+      }, 80);
+    }
+    box.appendChild(div);
+  });
+}
+function resetHighlight() {
+  currentLine = -1;
+  renderArticle(lines, -1);
+}
+function clearContent() {
+  document.getElementById('inputBox').value = '';
+  resetHighlight();
+  updatePreview();
+}
+async function pasteContent() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('inputBox').value = text;
+    resetHighlight();
+    updatePreview();
+  } catch (err) {
+    alert("無法貼上剪貼簿內容，請確保瀏覽器已授權存取剪貼簿。");
+  }
+}
+function stopReading() {
+  synth.cancel();
+  isPaused = false;
+  if (breakTimeout) clearTimeout(breakTimeout);
+  resetHighlight();
+}
+function pauseReading() {
+  if (synth.speaking && !isPaused) {
+    synth.pause();
+    isPaused = true;
+  }
+  if (breakTimeout) clearTimeout(breakTimeout);
+}
+function resumeReading() {
+  if (synth.paused) {
+    synth.resume();
+    isPaused = false;
+  }
+}
+function getRate() {
+  const r = parseFloat(document.getElementById("customRate").value);
+  if (!isNaN(r) && r > 0) return r;
+  return parseFloat(document.getElementById("rate").value);
+}
+function startReading() {
+  stopReading();
+  setTimeout(function() {
+    const content = document.getElementById("inputBox").value.trim();
+    if (!content) return alert("請先輸入文章內容！");
+    if (!lines.length) return;
+    const lang = getCurrentLang();
+    let rate = getRate();
+    let vlist = [];
+    if (lang === "zh-HK") vlist = cantoneseVoices;
+    if (lang === "zh-TW") vlist = mandarinTWVoices;
+    if (lang === "zh-CN") vlist = mandarinCNVoices;
+    if (lang === "en-US") vlist = engVoices;
+    if ((lang==="zh-HK" && vlist.length === 0) ||
+        (lang==="zh-TW" && vlist.length === 0) ||
+        (lang==="zh-CN" && vlist.length === 0) ||
+        (lang==="en-US" && vlist.length === 0)
+       ) {
+      alert("找不到對應語音包。請安裝或啟用系統語音。");
+      resetHighlight();
+      return;
+    }
+    currentLine = 0;
+    speakNextLine(lang, rate, vlist);
+  }, 100);
+}
+function speakNextLine(lang, rate, vlist) {
+  if (currentLine >= lines.length) {
+    resetHighlight();
+    return;
+  }
+  renderArticle(lines, currentLine);
+  synth.cancel();
+  utterance = new SpeechSynthesisUtterance(lines[currentLine]);
+  if (vlist.length > 0) {
+    const selVoice = vlist[getSelectedVoiceIndex()];
+    utterance.voice = selVoice;
+    utterance.rate = rate;
+  } else {
+    utterance.lang = lang;
+    utterance.rate = rate;
+  }
+  utterance.onend = function() {
+    currentLine++;
+    breakTimeout = setTimeout(function(){ speakNextLine(lang, rate, vlist); }, 220);
+  };
+  utterance.onerror = function() {
+    currentLine++;
+    breakTimeout = setTimeout(function(){ speakNextLine(lang, rate, vlist); }, 220);
+  };
+  synth.speak(utterance);
+  isPaused = false;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>分數計算練習（刷新+列印PDF）</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      max-width: 720px;
+      margin: 20px auto;
+      padding: 10px;
+      background: #fefefe;
+      color: #222;
+      position: relative;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #004080;
+      margin-bottom: 20px;
+    }
+    .fraction {
+      display: inline-block;
+      text-align: center;
+      vertical-align: middle;
+      margin: 0 6px;
+      user-select: none;
+    }
+    .fraction > span {
+      display: block;
+      padding: 0 6px;
+    }
+    .numerator {
+      border-bottom: 1.8px solid #222;
+      font-weight: 600;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+    .denominator {
+      font-weight: 600;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+    .problem {
+      margin-bottom: 24px;
+      padding: 14px 18px;
+      border: 1.5px solid #ccc;
+      border-radius: 8px;
+      background: #fafafa;
+      box-shadow: 1px 1px 5px rgba(0,0,0,0.04);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .problem-left {
+      flex: 1 1 auto;
+    }
+    .problem-right {
+      flex: 1 1 320px;
+      position: relative;
+      background: #eef6fc;
+      border-left: 4px solid #007acc;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-family: Consolas, "Courier New", monospace;
+      white-space: pre-wrap;
+      color: #444;
+      user-select: text;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .mask {
+      position: absolute;
+      inset: 0;
+      background: #000000;
+      opacity: 1;
+      border-radius: 6px;
+      cursor: default;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 16px;
+      user-select: none;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+      z-index: 10;
+      visibility: visible;
+    }
+    .mask.hidden {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      z-index: 0;
+    }
+    label {
+      display: inline-block;
+      width: 58px;
+      vertical-align: top;
+      margin-right: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      color: #004080;
+    }
+    .fraction-input {
+      display: inline-block;
+      width: 56px;
+      border: 1.5px solid #666;
+      border-radius: 6px;
+      text-align: center;
+      user-select: text;
+    }
+    .fraction-input input {
+      width: 100%;
+      border: none;
+      font-size: 20px;
+      font-weight: 600;
+      padding: 2px 0;
+      text-align: center;
+      outline: none;
+      -webkit-appearance: none;
+      -moz-appearance: textfield;
+    }
+    .fraction-input input::-webkit-inner-spin-button, 
+    .fraction-input input::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    .fraction-input .numerator-input {
+      border-bottom: 1.6px solid #222;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+    }
+    .fraction-input .denominator-input {
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
+    }
+    .inline-inputs {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+    }
+    button {
+      margin-top: 14px;
+      padding: 8px 22px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      background-color: #007acc;
+      color: white;
+      transition: background-color 0.3s ease;
+    }
+    button:hover:not(:disabled) {
+      background-color: #005f99;
+    }
+    button:disabled {
+      background-color: #a0c4e8;
+      cursor: default;
+    }
+    .feedback {
+      font-weight: 700;
+      margin-top: 8px;
+      font-size: 16px;
+      color: #004080;
+      text-align: center;
+    }
+    input[disabled] {
+      background: #eee;
+      color: #555;
+    }
+    .top-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .refresh-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 6px 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      background-color: #28a745;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .refresh-btn:hover {
+      background-color: #218838;
+    }
+  </style>
+</head>
+<body>
+  <button class="refresh-btn" onclick="refreshProblems()">刷新題目</button>
+  <div class="top-buttons">
+    <button onclick="printPDF()">列印成 PDF</button>
+    <h1>分數計算練習</h1>
+  </div>
+  <div class="section" id="calculation-section">
+    <h2>分數計算題 (6題，固定順序)</h2>
+    <form id="calculation-form" novalidate></form>
+    <button type="button" id="calc-submit-btn" onclick="checkCalculations()">提交計算答案</button>
+    <div id="calc-feedback" class="feedback" aria-live="polite"></div>
+  </div>
+
+  <script>
+    function fractionToHTML(f) {
+      return '<span class="fraction" aria-label="分數"><span class="numerator">' + f.numerator + '</span><span class="denominator">' + f.denominator + '</span></span>';
+    }
+    function problemToHTML(fractions, type) {
+      switch(type) {
+        case "add2":
+          return fractionToHTML(fractions[0]) + ' + ' + fractionToHTML(fractions[1]);
+        case "sub2":
+          return fractionToHTML(fractions[0]) + ' - ' + fractionToHTML(fractions[1]);
+        case "add3":
+          return fractionToHTML(fractions[0]) + ' + ' + fractionToHTML(fractions[1]) + ' + ' + fractionToHTML(fractions[2]);
+        case "sub3":
+          return fractionToHTML(fractions[0]) + ' - ' + fractionToHTML(fractions[1]) + ' - ' + fractionToHTML(fractions[2]);
+        case "mix1":
+          return fractionToHTML(fractions[0]) + ' - ' + fractionToHTML(fractions[1]) + ' + ' + fractionToHTML(fractions[2]);
+        case "mix2":
+          return fractionToHTML(fractions[0]) + ' + ' + fractionToHTML(fractions[1]) + ' - ' + fractionToHTML(fractions[2]);
+        default:
+          return "";
+      }
+    }
+    function randomFraction(maxDenominator) {
+      var denominator = Math.floor(Math.random() * (maxDenominator - 1)) + 2;
+      var numerator = Math.floor(Math.random() * (denominator - 1)) + 1;
+      return { numerator: numerator, denominator: denominator };
+    }
+    function gcd(a, b) {
+      if (!b) return a;
+      return gcd(b, a % b);
+    }
+    function simplifyFraction(n, d) {
+      var g = gcd(n, d);
+      return { numerator: n / g, denominator: d / g };
+    }
+    function isProperFraction(n, d) {
+      return n < d;
+    }
+    function commonDenominator(f1, f2) {
+      var cd = f1.denominator * f2.denominator / gcd(f1.denominator, f2.denominator);
+      var n1 = f1.numerator * (cd / f1.denominator);
+      var n2 = f2.numerator * (cd / f2.denominator);
+      return { commonDenominator: cd, numerator1: n1, numerator2: n2 };
+    }
+    function commonDenominator3(f1, f2, f3) {
+      var d1 = f1.denominator, d2 = f2.denominator, d3 = f3.denominator;
+      var cd = d1 * d2 / gcd(d1,d2);
+      var cd3 = cd * d3 / gcd(cd, d3);
+      var n1 = f1.numerator * (cd3 / d1);
+      var n2 = f2.numerator * (cd3 / d2);
+      var n3 = f3.numerator * (cd3 / d3);
+      return { commonDenominator: cd3, numerators: [n1, n2, n3] };
+    }
+    function calculateByTypeWithSteps(fractions, type) {
+      var answer = null;
+      var steps = "";
+      function formatStepLine(line) { return line + "\n"; }
+      if (type === "add2") {
+        var cdObj = commonDenominator(fractions[0], fractions[1]);
+        steps += formatStepLine("通分: 分母 = " + cdObj.commonDenominator + ", 分子分別為 " + cdObj.numerator1 + " 與 " + cdObj.numerator2);
+        var numeratorSum = cdObj.numerator1 + cdObj.numerator2;
+        steps += formatStepLine("相加分子: " + cdObj.numerator1 + " + " + cdObj.numerator2 + " = " + numeratorSum);
+        answer = simplifyFraction(numeratorSum, cdObj.commonDenominator);
+        steps += formatStepLine("約分後答案: " + answer.numerator + "/" + answer.denominator);
+        if (!isProperFraction(answer.numerator, answer.denominator)) return null;
+        return {answer: answer, steps: steps};
+      } else if (type === "sub2") {
+        var cdObj = commonDenominator(fractions[0], fractions[1]);
+        steps += formatStepLine("通分: 分母 = " + cdObj.commonDenominator + ", 分子分別為 " + cdObj.numerator1 + " 與 " + cdObj.numerator2);
+        var numeratorDiff = cdObj.numerator1 - cdObj.numerator2;
+        steps += formatStepLine("相減分子: " + cdObj.numerator1 + " - " + cdObj.numerator2 + " = " + numeratorDiff);
+        if (numeratorDiff <= 0) return null;
+        answer = simplifyFraction(numeratorDiff, cdObj.commonDenominator);
+        steps += formatStepLine("約分後答案: " + answer.numerator + "/" + answer.denominator);
+        if (!isProperFraction(answer.numerator, answer.denominator)) return null;
+        return {answer: answer, steps: steps};
+      } else if (type === "add3") {
+        var cd3Obj = commonDenominator3(fractions[0], fractions[1], fractions[2]);
+        steps += formatStepLine("通分: 分母 = " + cd3Obj.commonDenominator + ", 分子分別為 " + cd3Obj.numerators[0] + ", " + cd3Obj.numerators[1] + ", " + cd3Obj.numerators[2]);
+        var numeratorSum = cd3Obj.numerators[0] + cd3Obj.numerators[1] + cd3Obj.numerators[2];
+        steps += formatStepLine("相加分子: " + cd3Obj.numerators[0] + " + " + cd3Obj.numerators[1] + " + " + cd3Obj.numerators[2] + " = " + numeratorSum);
+        answer = simplifyFraction(numeratorSum, cd3Obj.commonDenominator);
+        steps += formatStepLine("約分後答案: " + answer.numerator + "/" + answer.denominator);
+        if (!isProperFraction(answer.numerator, answer.denominator)) return null;
+        return {answer: answer, steps: steps};
+      } else if (type === "sub3") {
+        var cd3Obj = commonDenominator3(fractions[0], fractions[1], fractions[2]);
+        steps += formatStepLine("通分: 分母 = " + cd3Obj.commonDenominator + ", 分子分別為 " + cd3Obj.numerators[0] + ", " + cd3Obj.numerators[1] + ", " + cd3Obj.numerators[2]);
+        var numeratorDiff = cd3Obj.numerators[0] - cd3Obj.numerators[1] - cd3Obj.numerators[2];
+        steps += formatStepLine("相減分子: " + cd3Obj.numerators[0] + " - " + cd3Obj.numerators[1] + " - " + cd3Obj.numerators[2] + " = " + numeratorDiff);
+        if (numeratorDiff <= 0) return null;
+        answer = simplifyFraction(numeratorDiff, cd3Obj.commonDenominator);
+        steps += formatStepLine("約分後答案: " + answer.numerator + "/" + answer.denominator);
+        if (!isProperFraction(answer.numerator, answer.denominator)) return null;
+        return {answer: answer, steps: steps};
+      } else if (type === "mix1") {
+        var cd3Obj = commonDenominator3(fractions[0], fractions[1], fractions[2]);
+        steps += formatStepLine("通分: 分母 = " + cd3Obj.commonDenominator + ", 分子分別為 " + cd3Obj.numerators[0] + ", " + cd3Obj.numerators[1] + ", " + cd3Obj.numerators[2]);
+        var numeratorInter = cd3Obj.numerators[0] - cd3Obj.numerators[1];
+        steps += formatStepLine("先相減分子: " + cd3Obj.numerators[0] + " - " + cd3Obj.numerators[1] + " = " + numeratorInter);
+        if (numeratorInter <= 0) return null;
+        var numeratorSum = numeratorInter + cd3Obj.numerators[2];
+        steps += formatStepLine("再相加分子: " + numeratorInter + " + " + cd3Obj.numerators[2] + " = " + numeratorSum);
+        answer = simplifyFraction(numeratorSum, cd3Obj.commonDenominator);
+        steps += formatStepLine("約分後答案: " + answer.numerator + "/" + answer.denominator);
+        if (!isProperFraction(answer.numerator, answer.denominator)) return null;
+        return {answer: answer, steps: steps};
+      } else if (type === "mix2") {
+        var cd3Obj = commonDenominator3(fractions[0], fractions[1], fractions[2]);
+        steps += formatStepLine("通分: 分母 = " + cd3Obj.commonDenominator + ", 分子分別為 " + cd3Obj.numerators[0] + ", " + cd3Obj.numerators[1] + ", " + cd3Obj.numerators[2]);
+        var numeratorInter = cd3Obj.numerators[0] + cd3Obj.numerators[1];
+        steps += formatStepLine("先相加分子: " + cd3Obj.numerators[0] + " + " + cd3Obj.numerators[1] + " = " + numeratorInter);
+        var numeratorDiff = numeratorInter - cd3Obj.numerators[2];
+        steps += formatStepLine("再相減分子: " + numeratorInter + " - " + cd3Obj.numerators[2] + " = " + numeratorDiff);
+        if (numeratorDiff <= 0) return null;
+        answer = simplifyFraction(numeratorDiff, cd3Obj.commonDenominator);
+        steps += formatStepLine("約分後答案: " + answer.numerator + "/" + answer.denominator);
+        if (!isProperFraction(answer.numerator, answer.denominator)) return null;
+        return {answer: answer, steps: steps};
+      }
+      return null;
+    }
+
+    var calcLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
+    var calcTypes = ["add2", "sub2", "add3", "sub3", "mix1", "mix2"];
+    var calcProblems = [];
+
+    function generateCalculationProblems() {
+      var form = document.getElementById('calculation-form');
+      form.innerHTML = '';
+      calcProblems.length = 0;
+      for(var i=0; i<6; i++) {
+        var type = calcTypes[i];
+        var fractions = [];
+        var numFracs = (type === "add2" || type === "sub2") ? 2 : 3;
+        var result = null;
+        var attempts = 0;
+        while(true) {
+          fractions = [];
+          for(var j=0; j<numFracs; j++) {
+            fractions.push(randomFraction(12));
+          }
+          result = calculateByTypeWithSteps(fractions, type);
+          attempts++;
+          if (result !== null || attempts > 100) break;
+        }
+        if(result === null) {
+          result = {answer: {numerator:1, denominator:2}, steps: "無法生成合適題目，使用預設答案 1/2"};
+          fractions = [{numerator:1, denominator:3}, {numerator:1, denominator:4}];
+        }
+        calcProblems.push({fractions: fractions, type: type, answer: result.answer, steps: result.steps});
+        var problemHTML = problemToHTML(fractions, type);
+        var rightHTML = "答案: " + fractionToHTML(result.answer) + "\n\n計算過程:\n" + result.steps;
+        var problemDiv = document.createElement('div');
+        problemDiv.className = 'problem';
+        problemDiv.id = "calc-problem-" + i;
+        problemDiv.innerHTML = 
+          '<div class="problem-left">' +
+            '<div>題目 ' + calcLabels[i] + ': ' + problemHTML + ' = </div>' +
+            '<div class="inline-inputs" style="margin-top: 8px;">' +
+              '<label for="calc-n-' + i + '">答案：</label>' +
+              '<div class="fraction-input">' +
+                '<input type="number" id="calc-n-' + i + '" class="numerator-input" placeholder="分子" min="1" required aria-required="true" aria-describedby="calc-feedback-' + i + '" />' +
+                '<input type="number" id="calc-d-' + i + '" class="denominator-input" placeholder="分母" min="1" required aria-required="true" aria-describedby="calc-feedback-' + i + '" />' +
+              '</div>' +
+            '</div>' +
+            '<div class="feedback" id="calc-feedback-' + i + '" role="alert" aria-live="polite" style="margin-top: 6px;"></div>' +
+          '</div>' +
+          '<div class="problem-right" id="calc-answer-' + i + '" aria-hidden="true">' +
+            '<pre>' + rightHTML + '</pre>' +
+            '<div class="mask" id="mask-' + i + '" title="提交後顯示答案與計算過程">答案與計算過程已隱藏</div>' +
+          '</div>';
+        form.appendChild(problemDiv);
+      }
+      addEnterKeyNavigation();
+    }
+
+    function addEnterKeyNavigation() {
+      const inputs = document.querySelectorAll('.numerator-input, .denominator-input');
+      inputs.forEach((input, index) => {
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            const nextInput = inputs[index + 1];
+            if (nextInput) nextInput.focus();
+          }
+        });
+      });
+    }
+
+    function disableCalcInputs() {
+      for(var i=0; i<calcProblems.length; i++) {
+        document.getElementById("calc-n-" + i).disabled = true;
+        document.getElementById("calc-d-" + i).disabled = true;
+      }
+      document.getElementById('calc-submit-btn').disabled = true;
+    }
+
+    function checkCalculations() {
+      var correctCount = 0;
+      
+      // Remove all masks first
+      for(var i=0; i<calcProblems.length; i++) {
+        var maskEl = document.getElementById("mask-" + i);
+        if (maskEl) {
+          maskEl.classList.add('hidden');
+          maskEl.setAttribute('aria-hidden', 'true');
+        }
+        document.getElementById("calc-answer-" + i).setAttribute('aria-hidden', 'false');
+      }
+      
+      // Then check answers
+      for(var i=0; i<calcProblems.length; i++) {
+        var userN = Number(document.getElementById("calc-n-" + i).value);
+        var userD = Number(document.getElementById("calc-d-" + i).value);
+        var feedbackEl = document.getElementById("calc-feedback-" + i);
+
+        if (!userN || !userD) {
+          feedbackEl.textContent = "請輸入分子和分母（均為正整數）";
+          feedbackEl.style.color = "red";
+          continue;
+        }
+
+        var correct = calcProblems[i].answer;
+        if (userN === correct.numerator && userD === correct.denominator) {
+          feedbackEl.textContent = '答對了！';
+          feedbackEl.style.color = 'green';
+          correctCount++;
+        } else {
+          feedbackEl.textContent = '答案錯誤';
+          feedbackEl.style.color = 'red';
+        }
+      }
+      
+      disableCalcInputs();
+      var summaryEl = document.getElementById('calc-feedback');
+      summaryEl.textContent = "你答對了 " + correctCount + " / 6 題";
+      summaryEl.style.color = correctCount === 6 ? 'green' : 'red';
+      summaryEl.scrollIntoView({behavior: "smooth", block: "center"});
+    }
+
+    function refreshProblems() {
+      generateCalculationProblems();
+      document.getElementById('calc-feedback').textContent = '';
+      document.getElementById('calc-submit-btn').disabled = false;
+    }
+
+    function printPDF() {
+      window.print();
+    }
+
+    window.onload = function() {
+      generateCalculationProblems();
+    };
+  </script>
+</body>
+</html>
