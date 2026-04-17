@@ -12,12 +12,11 @@
       padding: 20px;
     }
     .container {
-      max-width: 1000px;
+      max-width: 1050px;
       margin: 0 auto;
       background: white;
       border-radius: 20px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      overflow: hidden;
     }
     header {
       background: #4CAF50;
@@ -28,13 +27,11 @@
     h1 { margin: 0; font-size: 2.3em; }
     .info { text-align: center; padding: 12px; background: #f0f8f0; font-size: 1.2em; }
 
-    .questions-container {
-      padding: 30px 40px;
-    }
+    .questions-container { padding: 30px 40px; }
     .question-item {
       display: flex;
       align-items: center;
-      margin: 20px 0;
+      margin: 22px 0;
       font-size: 1.65em;
       gap: 15px;
     }
@@ -42,7 +39,7 @@
     input {
       font-size: 1.5em;
       padding: 10px 15px;
-      width: 180px;
+      width: 190px;
       text-align: center;
       border: 3px solid #4CAF50;
       border-radius: 12px;
@@ -50,7 +47,7 @@
 
     .btn {
       font-size: 1.4em;
-      padding: 12px 30px;
+      padding: 12px 32px;
       margin: 20px 10px;
       border: none;
       border-radius: 12px;
@@ -67,7 +64,7 @@
       border-radius: 15px;
     }
     .result {
-      margin: 20px 0;
+      margin: 22px 0;
       padding: 18px;
       border-radius: 12px;
       font-size: 1.35em;
@@ -78,14 +75,14 @@
 
     .column-method {
       background: #fff;
-      padding: 15px 20px;
+      padding: 16px 20px;
       border: 3px dashed #4CAF50;
       border-radius: 12px;
       margin: 12px 0;
       font-family: monospace;
-      font-size: 1.28em;
+      font-size: 1.3em;
       white-space: pre;
-      line-height: 1.45;
+      line-height: 1.5;
       overflow-x: auto;
       text-align: right;
       color: #2c3e50;
@@ -98,7 +95,7 @@
       padding-left: 10px;
     }
     .summary {
-      font-size: 1.9em;
+      font-size: 1.95em;
       text-align: center;
       margin: 25px 0;
       font-weight: bold;
@@ -148,7 +145,7 @@
       const product = numA * numB;
       const correct = product.toFixed(4).replace(/\.?0+$/, '');
 
-      return { q: `${numA} × ${numB}`, a: numA, b: numB, answer: correct, level: level };
+      return { q: `${numA} × ${numB}`, a: numA, b: numB, answer: correct };
     }
 
     function createNewSet() {
@@ -177,67 +174,65 @@
       });
     }
 
-    // Fixed & Improved Step-by-Step Column Method
+    // Safe & Clear Step-by-Step 直式方法
     function getColumnMethod(a, b, correctAnswer) {
       const decA = (a.toString().split('.')[1] || '').length;
       const decB = (b.toString().split('.')[1] || '').length;
-      const totalDecimals = decA + decB;
+      const totalDec = decA + decB;
 
       const intA = Math.round(a * Math.pow(10, decA));
       const intB = Math.round(b * Math.pow(10, decB));
 
-      let sA = intA.toString();
-      let sB = intB.toString();
-      const width = Math.max(sA.length, sB.length) + 4;
+      const sA = intA.toString();
+      const sB = intB.toString();
+      const width = Math.max(sA.length, sB.length) + 5;
 
-      let output = [];
+      let lines = [];
 
-      output.push(' '.repeat(width - sA.length) + sA);
-      output.push('×' + ' '.repeat(width - sB.length - 1) + sB);
-      output.push('-'.repeat(width));
+      lines.push(' '.repeat(width - sA.length) + sA);
+      lines.push('×' + ' '.repeat(width - sB.length - 1) + sB);
+      lines.push('-'.repeat(width));
 
-      // Partial products (safer calculation)
-      let partialLines = [];
       let maxLen = 0;
+      const partials = [];
 
       for (let i = 0; i < sB.length; i++) {
         const digit = parseInt(sB[sB.length - 1 - i]);
-        let partial = intA * digit;
-        let line = partial.toString() + '0'.repeat(i);   // shift by adding zeros
-        partialLines.push(line);
+        const partial = intA * digit;
+        let line = partial.toString() + '0'.repeat(i);
+        partials.push(line);
         maxLen = Math.max(maxLen, line.length);
       }
 
-      partialLines.forEach((line, idx) => {
-        const padded = ' '.repeat(maxLen - line.length);
-        const multiplierDigit = sB[sB.length - 1 - idx];
-        output.push(padded + line + '   ← × ' + multiplierDigit + (idx > 0 ? '0'.repeat(idx) : ''));
+      partials.forEach((line, idx) => {
+        const padding = ' '.repeat(maxLen - line.length);
+        const digit = sB[sB.length - 1 - idx];
+        const shift = idx > 0 ? '0'.repeat(idx) : '';
+        lines.push(padding + line + '   ← × ' + digit + shift);
       });
 
-      output.push('-'.repeat(maxLen + 2));
+      lines.push('-'.repeat(maxLen + 3));
 
-      // Final integer product
-      let finalInt = (intA * intB).toString();
-      output.push(' '.repeat(maxLen - finalInt.length) + finalInt);
-
-      output.push('='.repeat(maxLen + 2));
+      const finalInt = (intA * intB).toString();
+      lines.push(' '.repeat(maxLen - finalInt.length + 1) + finalInt);
+      lines.push('='.repeat(maxLen + 3));
 
       // Place decimal point
       let resultStr = correctAnswer;
-      if (totalDecimals > 0) {
-        let temp = finalInt.padStart(totalDecimals + 1, '0');
-        let dotPos = temp.length - totalDecimals;
+      if (totalDec > 0) {
+        let temp = finalInt.padStart(totalDec + 1, '0');
+        const dotPos = temp.length - totalDec;
         resultStr = temp.slice(0, dotPos) + '.' + temp.slice(dotPos);
         if (resultStr.startsWith('.')) resultStr = '0' + resultStr;
       }
-      output.push(' '.repeat(maxLen - resultStr.length + 1) + resultStr);
+      lines.push(' '.repeat(maxLen - resultStr.length + 2) + resultStr);
 
-      let html = `<div class="column-method">${output.join('\n')}</div>`;
+      let html = `<div class="column-method">${lines.join('\n')}</div>`;
       html += `<div class="explain">
-        📌 直式計算說明：<br>
-        1. 先忽略小數點，把兩個數當成整數相乘<br>
-        2. 兩個數一共有 <strong>${totalDecimals}</strong> 位小數<br>
-        3. 最後從右邊數 <strong>${totalDecimals}</strong> 位，放上小數點
+        📌 直式計算步驟說明：<br>
+        1. 先把小數點忽略，當成整數相乘<br>
+        2. 兩個數共有 <strong>${totalDec}</strong> 位小數<br>
+        3. 最後從右邊數 <strong>${totalDec}</strong> 位，點上小數點
       </div>`;
 
       return html;
