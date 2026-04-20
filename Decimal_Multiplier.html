@@ -25,10 +25,24 @@
       text-align: center;
     }
     h1 { margin: 0; font-size: 2.3em; }
+
+    .control-panel {
+      padding: 15px 40px;
+      background: #f0f8f0;
+      text-align: center;
+      font-size: 1.15em;
+    }
+    .control-panel select {
+      font-size: 1.1em;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin: 0 10px;
+    }
+
     .info { 
       text-align: center; 
-      padding: 12px; 
-      background: #f0f8f0; 
+      padding: 10px; 
+      background: #e8f5e9; 
       font-size: 1.2em; 
       font-weight: bold;
     }
@@ -115,6 +129,15 @@
       <h1>🌟 小五小數乘法練習 🌟</h1>
     </header>
 
+    <div class="control-panel">
+      乘數範圍：
+      <select id="multiplierLevel" onchange="changeMultiplierRange()">
+        <option value="easy">Easy (1.0 ~ 12.9)</option>
+        <option value="medium" selected>Medium (1.0 ~ 39.9)</option>
+        <option value="hard">Hard (2.0 ~ 99.9)</option>
+      </select>
+    </div>
+
     <div class="info">
       乘數固定為 1 個小數位 • 答案最多保留 3 個小數位
     </div>
@@ -132,21 +155,29 @@
 
   <script>
     let currentQuestions = [];
+    let multiplierMax = 39.9;   // default = Medium
+
+    function changeMultiplierRange() {
+      const val = document.getElementById('multiplierLevel').value;
+      if (val === 'easy') multiplierMax = 12.9;
+      else if (val === 'medium') multiplierMax = 39.9;
+      else multiplierMax = 99.9;
+      
+      alert(`乘數範圍已改為：1.0 ~ ${multiplierMax}`);
+      startNewSet();   // 自動重新出一組新題
+    }
 
     function generateQuestion(level) {
       let a, b;
       
-      // 乘數 (b) 永遠固定為 1 個小數位
-      b = (Math.random() * 12 + 1).toFixed(1);   // 1.0 ~ 12.9
+      // 乘數永遠 1 個小數位，範圍由控制面板決定
+      b = (Math.random() * (multiplierMax - 1) + 1).toFixed(1);
 
       if (level === 'normal') {
-        // Normal: 被乘數 1 個小數位
         a = (Math.random() * 9 + 1).toFixed(1);
       } else if (level === 'medium') {
-        // Medium: 被乘數 1 或 2 個小數位
         a = (Math.random() * 25 + 2).toFixed(Math.random() > 0.5 ? 1 : 2);
       } else {
-        // Hard: 被乘數 2 個小數位 (較大數字)
         a = (Math.random() * 40 + 5).toFixed(2);
       }
 
@@ -154,7 +185,6 @@
       const numB = parseFloat(b);
       let product = numA * numB;
 
-      // 答案最多保留 3 個小數位
       const correct = product.toFixed(3).replace(/\.?0+$/, '');
 
       return { 
@@ -168,9 +198,9 @@
     function createNewSet() {
       currentQuestions = [];
       const counts = { normal: 3, medium: 3, hard: 4 };
-      for (let level in counts) {
-        for (let i = 0; i < counts[level]; i++) {
-          currentQuestions.push(generateQuestion(level));
+      for (let lvl in counts) {
+        for (let i = 0; i < counts[lvl]; i++) {
+          currentQuestions.push(generateQuestion(lvl));
         }
       }
       currentQuestions.sort(() => Math.random() - 0.5);
@@ -191,7 +221,7 @@
       });
     }
 
-    // Safe Step-by-Step Column Method (直式方法)
+    // Column Method (直式方法) - same as before
     function getColumnMethod(a, b, correctAnswer) {
       const decA = (a.toString().split('.')[1] || '').length;
       const decB = (b.toString().split('.')[1] || '').length;
@@ -205,7 +235,6 @@
       const width = Math.max(sA.length, sB.length) + 5;
 
       let lines = [];
-
       lines.push(' '.repeat(width - sA.length) + sA);
       lines.push('×' + ' '.repeat(width - sB.length - 1) + sB);
       lines.push('-'.repeat(width));
